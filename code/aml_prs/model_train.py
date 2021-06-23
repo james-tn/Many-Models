@@ -1,4 +1,3 @@
-# Copyright (c) Microsoft. All rights reserved.
 # Licensed under the MIT license.
 
 import os
@@ -63,8 +62,7 @@ def run(mini_batch):
     # 8.0 Save the pipeline and register model to AML
     joblib.dump(forecaster, model_name)#   
     model = Model.register(workspace=ws, model_name=model_name, model_path=model_name, tags={'mse':str(mse), 'mape': str(mape), 'rmse': str(rmse)})
-    # return 1
     result =pd.DataFrame({'Store':[store],'Brand':[brand], 'mse':[mse], 'mape': [mape], 'rmse': [rmse], 'model_name':[model_name]})
-    print("Result is ", result)
+
     return result
 
