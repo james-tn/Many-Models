@@ -3,7 +3,8 @@ name: my-endpoint
 type: online
 auth_mode: key
 traffic:
-  blue: 100
+  blue: 80
+  green:20 
 
 deployments:
   #blue deployment
