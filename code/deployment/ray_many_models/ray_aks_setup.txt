@@ -1,0 +1,15 @@
+---create AKS cluster
+
+az extension add --name k8s-extension
+az aks create -g azureml -n ray-many-model --enable-managed-identity --node-count 2 --enable-addons monitoring -s Standard_D13_v2
+az k8s-extension create --name azureml --extension-type Microsoft.AzureML.Kubernetes --config enableTraining=True enableInference=True inferenceRouterServiceType=LoadBalancer allowInsecureConnections=True inferenceLoadBalancerHA=False --cluster-type managedClusters --cluster-name ray-many-model --resource-group azureml --scope cluster
+
+az ml compute attach --resource-group azureml --workspace-name ws01ent --name ray-on-aml --resource-id /subscriptions/0e9bace8-7a81-4922-83b5-d995ff706507/resourcegroups/azureml/providers/Microsoft.ContainerService/managedClusters/ray-many-model --type kubernetes --identity-type SystemAssigned
+
+---command to deploy
+az aks get-credentials -n ray-many-modela15023546 --resource-group azureml 
+
+! kubectl create -k kuberay/ray-operator/config/default
+
+# Deploy a sample Ray Cluster CR from the KubeRay repo:
+! kubectl apply -f ray_service.yaml

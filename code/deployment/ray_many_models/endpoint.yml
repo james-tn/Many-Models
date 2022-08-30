@@ -1,0 +1,3 @@
+name: ray-many-model
+compute: azureml:ray-on-aml
+auth_mode: key
