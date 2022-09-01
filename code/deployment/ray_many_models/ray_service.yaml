@@ -25,6 +25,16 @@ spec:
         numReplicas: 1
         userConfig: |
           tenant: tenant2
+      - name: Deployment3
+        numReplicas: 1
+        userConfig: |
+          tenant: tenant3
+        rayActorOptions:
+          numCpus: 0.1
+      - name: Deploymentx
+        numReplicas: 1
+        userConfig: |
+          tenant: default
         rayActorOptions:
           numCpus: 0.1
       - name: DAGDriver
@@ -78,21 +88,21 @@ spec:
                     fieldRef:
                       fieldPath: status.podIP
                 - name:  TENANT_ID
-                  value: ""
+                  value: "72f988bf-86f1-41af-91ab-2d7cd011db47"
                 - name:  SUBSCRIPTION_ID
-                  value: ""
+                  value: "0e9bace8-7a81-4922-83b5-d995ff706507"
                 - name:  SERVICE_PRINCIPAL_ID
-                  value: ""
+                  value: "af883abf-89dd-4889-bdb3-1ee84f68465e"
                 - name:  SERVICE_PRINCIPAL_PASSWORD
-                  value: ""
+                  value: "ouj8Q~Wfn4mr4wjnr1EsoB2ULFM3LbUxJZK6ncd8"
                 - name:  RESOURCE_GROUP
-                  value: ""
+                  value: "azureml"
                 - name:  WORKSPACE_NAME
-                  value: ""
+                  value: "ws01ent"
               resources:
                 limits:
-                  cpu: 2
-                  memory: 10Gi
+                  cpu: 4
+                  memory: 20Gi
                 requests:
                   cpu: 2
                   memory: 10Gi
@@ -187,9 +197,9 @@ spec:
                       command: ["/bin/sh","-c","ray stop"]
                 resources:
                   limits:
+                    cpu: "4"
+                    memory: "20Gi"
+                  requests:
                     cpu: "2"
                     memory: "10Gi"
-                  requests:
-                    cpu: "1"
-                    memory: "5Gi"
 

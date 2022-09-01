@@ -1,6 +1,14 @@
 
 az account set --subscription 0e9bace8-7a81-4922-83b5-d995ff706507
 az configure --defaults workspace=ws01ent group=azureml
+az role assignment create --role contributor --assignee-object-id 9957f23f-f9e0-4ea8-ad1a-549ab78dd6ec --assignee-principal-type ServicePrincipal --scope /subscriptions/0e9bace8-7a81-4922-83b5-d995ff706507/resourceGroups/azureml/providers/Microsoft.MachineLearningServices/workspaces/ws01ent
+It's  ws01ent/onlineEndpoints/ray-ma
+
+kubectl create -k kuberay/ray-operator/config/default
+
+
+
+
 
 set ENDPOINT_NAME=many_model
 set WORKSPACE=ws01ent
