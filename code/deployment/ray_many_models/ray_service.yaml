@@ -92,17 +92,17 @@ spec:
                     fieldRef:
                       fieldPath: status.podIP
                 - name:  TENANT_ID
-                  value: "72f988bf-86f1-41af-91ab-2d7cd011db47"
+                  value: ""
                 - name:  SUBSCRIPTION_ID
-                  value: "0e9bace8-7a81-4922-83b5-d995ff706507"
+                  value: ""
                 - name:  SERVICE_PRINCIPAL_ID
-                  value: "af883abf-89dd-4889-bdb3-1ee84f68465e"
+                  value: ""
                 - name:  SERVICE_PRINCIPAL_PASSWORD
-                  value: "ouj8Q~Wfn4mr4wjnr1EsoB2ULFM3LbUxJZK6ncd8"
+                  value: ""
                 - name:  RESOURCE_GROUP
-                  value: "azureml"
+                  value: ""
                 - name:  WORKSPACE_NAME
-                  value: "ws01ent"
+                  value: ""
               resources:
                 limits:
                   cpu: 4
