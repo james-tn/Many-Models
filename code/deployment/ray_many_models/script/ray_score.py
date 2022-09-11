@@ -128,7 +128,7 @@ class Dispatcher:
         deployment_name = ray.get(self.sharedmemory.get_deployment_name.remote(tenant))
         deployment= self.deployment_map.get(deployment_name)
         result = ray.get(deployment.predict.remote(data, tenant))
-        result["deployment_map"] = ray.get(self.sharedmemory.tenant_map.remote())
+        result["deployment_map"] = ray.get(self.sharedmemory.get_tenant_map.remote())
         self.q.put(tenant)
 
         return result
