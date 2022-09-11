@@ -28,9 +28,7 @@ def download_model(model_name, ws):
     os.makedirs(model_name, exist_ok=True)
     model = Model(ws,"sklearn-iris")
     model.download(target_dir=model_name,exist_ok=True)
-    
-@serve.deployment(num_replicas=1)
-class Deployment1:
+class Deployment:
     def __init__(self):
         self.model_name= "default"
         sp = ServicePrincipalAuthentication(tenant_id=tenant_id, 
@@ -46,63 +44,24 @@ class Deployment1:
         download_model(self.model_name, self.ws)
         self.model = joblib.load(os.path.join(self.model_name, "model.joblib"))
 
-
     def predict(self, data,model_name):
         return {"deployment": self.__class__.__name__,"model": model_name, "prediction":self.model.predict(data)}
 @serve.deployment(num_replicas=1)
-class Deployment2:
-    def __init__(self):
-        self.model_name= "default"
-        sp = ServicePrincipalAuthentication(tenant_id=tenant_id, 
-                                            service_principal_id=service_principal_id, 
-                                            service_principal_password=service_principal_password) 
-        self.ws = Workspace(subscription_id=subscription_id,
-                        resource_group=resource_group,
-                        workspace_name=workspace_name,
-                    auth=sp)
-    def reconfigure(self, config: Dict):
-        self.model_name = config.get("tenant","default")
-        download_model(self.model_name, self.ws)
-        self.model = joblib.load(os.path.join(self.model_name, "model.joblib"))
-
-    def predict(self, data,model_name):
-        return {"deployment": self.__class__.__name__,"model": model_name, "prediction":self.model.predict(data)}
+class Deployment1(Deployment):
+    pass
 @serve.deployment(num_replicas=1)
-class Deployment3:
-    def __init__(self):
-        self.model_name= "default"
-        sp = ServicePrincipalAuthentication(tenant_id=tenant_id, 
-                                            service_principal_id=service_principal_id, 
-                                            service_principal_password=service_principal_password) 
-        self.ws = Workspace(subscription_id=subscription_id,
-                        resource_group=resource_group,
-                        workspace_name=workspace_name,
-                    auth=sp)
-    def reconfigure(self, config: Dict):
-        self.model_name = config.get("tenant","default")
-        download_model(self.model_name, self.ws)
-        self.model = joblib.load(os.path.join(self.model_name, "model.joblib"))
-
-    def predict(self, data,model_name):
-        return {"deployment": self.__class__.__name__,"model": model_name, "prediction":self.model.predict(data)}
+class Deployment2(Deployment):
+    pass
 @serve.deployment(num_replicas=1)
-class Deploymentx:
-    def __init__(self):
-        self.model_name= "default"
-        sp = ServicePrincipalAuthentication(tenant_id=tenant_id, 
-                                            service_principal_id=service_principal_id, 
-                                            service_principal_password=service_principal_password) 
-        self.ws = Workspace(subscription_id=subscription_id,
-                        resource_group=resource_group,
-                        workspace_name=workspace_name,
-                    auth=sp)
+class Deployment3(Deployment):
+    pass
+@serve.deployment(num_replicas=1)
+class Deploymentx(Deployment):
     def reconfigure(self, config: Dict):
         # self.model_name = config.get("tenant","default")
         # download_model(self.model_name)
         # self.model = joblib.load(os.path.join(self.model_name, "model.joblib"))
         pass
-
-
     def predict(self, data, model_name):
         #The default deployment load model on demand instead of hot caching 
         download_model(model_name, self.ws)
@@ -115,8 +74,6 @@ class Deploymentx:
 class Dispatcher:
     # def __init__(self, model1, model2, model3, model4, model5, model6, model7, model8):
     def __init__(self, deployment1: ClassNode, deployment2: ClassNode, deployment3: ClassNode, deploymentx: ClassNode):
-
-
         self.tenant_map = {"tenant1":deployment1, "tenant2":deployment2,"tenant3":deployment3}
         self.default_deployment = deploymentx
         self.tenant_queue = deque(maxlen=3)
