@@ -84,8 +84,10 @@ class SharedMemory:
         return self.tenant_map.pop(item)
     def set_tenant_map(self, tenant, deployment_name):
         self.tenant_map[tenant]=deployment_name
-    def get_tenant_map(self, tenant):
+    def get_deployment_name(self, tenant):
         return self.tenant_map.get(tenant, "default")
+    def get_tenant_map(self):
+        return self.tenant_map
 @serve.deployment(num_replicas=2)
 class Dispatcher:
     def __init__(self, deployment1: ClassNode, deployment2: ClassNode, deployment3: ClassNode, deploymentx: ClassNode,sharedmemory: ClassNode):
@@ -100,7 +102,7 @@ class Dispatcher:
         while True:
             new_item = self.q.get()
         
-            if new_item in ray.get(self.sharedmemory.tenant_queue.remote()):
+            if new_item in ray.get(self.sharedmemory.get_tenant_map.remote()):
                 #the tenant is already in the queue, just move it up to higher priority
                 ray.get(self.sharedmemory.tenant_queue_remove.remote(new_item))
                 ray.get(self.sharedmemory.tenant_queue_append.remote(new_item))
@@ -123,7 +125,7 @@ class Dispatcher:
         tenant = raw_input.get('tenant')
         # threading.Thread(target=self.append, daemon=True, args=(tenant)).start()
         data = raw_input.get("data")
-        deployment_name = ray.get(self.sharedmemory.get_tenant_map.remote(tenant))
+        deployment_name = ray.get(self.sharedmemory.get_deployment_name.remote(tenant))
         deployment= self.deployment_map.get(deployment_name)
         result = ray.get(deployment.predict.remote(data, tenant))
         result["deployment_map"] = ray.get(self.sharedmemory.tenant_map.remote())
