@@ -76,7 +76,16 @@ class SharedMemory:
         self.tenant_queue.append("tenant1")
         self.tenant_queue.append("tenant2")
         self.tenant_queue.append("tenant3")
-
+    def tenant_queue_remove(self, item):
+        self.tenant_queue.remove(item)
+    def tenant_queue_append(self, item):
+        self.tenant_queue.append(item)
+    def tenant_queue_popleft(self):
+        return self.tenant_queue.popleft()
+    def tenant_map_pop(self, item):
+        return self.tenant_map.pop(item)
+    def set_tenant_map(self, tenant, deployment_name):
+        self.tenant_map[tenant]=deployment_name
 @serve.deployment(num_replicas=2)
 class Dispatcher:
     def __init__(self, deployment1: ClassNode, deployment2: ClassNode, deployment3: ClassNode, deploymentx: ClassNode,sharedmemory: ClassNode):
@@ -87,8 +96,6 @@ class Dispatcher:
         self.q = queue.Queue()
         threading.Thread(target=self.append, daemon=True).start()
 
-
-
     def append(self):
 
         while True:
@@ -96,19 +103,19 @@ class Dispatcher:
         
             if new_item in self.tenant_queue:
                 #the tenant is already in the queue, just move it up to higher priority
-                self.sharedmemory.tenant_queue.remove(new_item)
-                self.sharedmemory.tenant_queue.append(new_item)
+                ray.get(self.sharedmemory.tenant_queue_remove.remote(new_item))
+                ray(self.sharedmemory.tenant_queue_append.remote(new_item))
             else: #if this tenant is not yet in the hot queue
                 #  kick out old tenant
-                out_item = ray.get(self.sharedmemory.tenant_queue.popleft())
-                self.sharedmemory.tenant_queue.append(new_item)
+                out_item = ray.get(self.sharedmemory.tenant_queue_popleft.remote())
+                ray.get(self.sharedmemory.tenant_queue_append.remote(new_item))
                 # update mapping table to route traffic of out_item to cold scoring
-                current_deployment = ray.get(self.sharedmemory.tenant_map.pop(out_item))
-                current_deployment = self.deployment_map.get(current_deployment)
+                current_deployment_name = ray.get(self.sharedmemory.tenant_map_pop.remote(out_item))
+                current_deployment = self.deployment_map.get(current_deployment_name)
                 # promote the new_item's deployment to hot
                 ray.get(current_deployment.reconfigure.remote({"tenant":new_item}))
                 #update mapping 
-                self.sharedmemory.tenant_map[new_item] =current_deployment
+                ray.get(self.sharedmemory.set_tenant_map.remote(new_item,current_deployment_name))
 
         
 
