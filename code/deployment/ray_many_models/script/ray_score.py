@@ -105,7 +105,7 @@ class Dispatcher:
             if new_item in self.tenant_queue:
                 #the tenant is already in the queue, just move it up to higher priority
                 ray.get(self.sharedmemory.tenant_queue_remove.remote(new_item))
-                ray(self.sharedmemory.tenant_queue_append.remote(new_item))
+                ray.get(self.sharedmemory.tenant_queue_append.remote(new_item))
             else: #if this tenant is not yet in the hot queue
                 #  kick out old tenant
                 out_item = ray.get(self.sharedmemory.tenant_queue_popleft.remote())
