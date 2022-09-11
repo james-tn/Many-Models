@@ -48,13 +48,11 @@ class Deployment:
 
     def predict(self, data,model_name):
         #if model name is equal to deploy's configured model name, the model is already loaded
-        if model_name == self.model_name:
-            return {"deployment": self.__class__.__name__,"model": model_name, "prediction":self.model.predict(data)}
-        else:
+        if model_name != self.model_name:
             download_model(model_name, self.ws)
             self.model = joblib.load(os.path.join(model_name, "model.joblib"))
             time.sleep(0.5) # adding more latency to simulate loading large model
-            return {"deployment": self.__class__.__name__,"model": model_name, "prediction":self.model.predict(data)}
+        return {"deployment": self.__class__.__name__,"model": model_name, "prediction":self.model.predict(data)}
 @serve.deployment(num_replicas=1)
 class Deployment1(Deployment):
     pass
@@ -102,7 +100,7 @@ class Dispatcher:
         while True:
             new_item = self.q.get()
         
-            if new_item in self.tenant_queue:
+            if new_item in ray.get(self.sharedmemory.tenant_queue.remote()):
                 #the tenant is already in the queue, just move it up to higher priority
                 ray.get(self.sharedmemory.tenant_queue_remove.remote(new_item))
                 ray.get(self.sharedmemory.tenant_queue_append.remote(new_item))
@@ -128,6 +126,7 @@ class Dispatcher:
         deployment_name = ray.get(self.sharedmemory.get_tenant_map.remote(tenant))
         deployment= self.deployment_map.get(deployment_name)
         result = ray.get(deployment.predict.remote(data, tenant))
+        result["deployment_map"] = ray.get(self.sharedmemory.tenant_map.remote())
         self.q.put(tenant)
 
         return result
