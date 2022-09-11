@@ -28,6 +28,7 @@ def download_model(model_name, ws):
     os.makedirs(model_name, exist_ok=True)
     model = Model(ws,"sklearn-iris")
     model.download(target_dir=model_name,exist_ok=True)
+#repsenting a deployment scoring. Assumption is model name = tenant name for simpicity.
 class Deployment:
     def __init__(self):
         self.model_name= "default"
@@ -40,12 +41,20 @@ class Deployment:
                     auth=sp)
 
     def reconfigure(self, config: Dict):
-        self.model_name = config.get("tenant","default")
-        download_model(self.model_name, self.ws)
-        self.model = joblib.load(os.path.join(self.model_name, "model.joblib"))
+        model_name = config.get("tenant","default")
+        download_model(model_name, self.ws)
+        self.model = joblib.load(os.path.join(model_name, "model.joblib"))
+        self.model_name = model_name
 
     def predict(self, data,model_name):
-        return {"deployment": self.__class__.__name__,"model": model_name, "prediction":self.model.predict(data)}
+        #if model name is equal to deploy's configured model name, the model is already loaded
+        if model_name == self.model_name:
+            return {"deployment": self.__class__.__name__,"model": model_name, "prediction":self.model.predict(data)}
+        else:
+            download_model(model_name, self.ws)
+            self.model = joblib.load(os.path.join(model_name, "model.joblib"))
+            time.sleep(0.5) # adding more latency to simulate loading large model
+            return {"deployment": self.__class__.__name__,"model": model_name, "prediction":self.model.predict(data)}
 @serve.deployment(num_replicas=1)
 class Deployment1(Deployment):
     pass
@@ -57,35 +66,26 @@ class Deployment3(Deployment):
     pass
 @serve.deployment(num_replicas=1)
 class Deploymentx(Deployment):
-    def reconfigure(self, config: Dict):
-        # self.model_name = config.get("tenant","default")
-        # download_model(self.model_name)
-        # self.model = joblib.load(os.path.join(self.model_name, "model.joblib"))
-        pass
-    def predict(self, data, model_name):
-        #The default deployment load model on demand instead of hot caching 
-        download_model(model_name, self.ws)
-        self.model = joblib.load(os.path.join(model_name, "model.joblib"))
-        time.sleep(0.5) # adding more latency to simulate loading large model
-
-        return {"deployment": self.__class__.__name__,"model": model_name, "prediction":self.model.predict(data)}
-
+    pass
+#serve as shared memory object for tenant map and tenant queue
 @serve.deployment(num_replicas=1)
-class Dispatcher:
-    # def __init__(self, model1, model2, model3, model4, model5, model6, model7, model8):
-    def __init__(self, deployment1: ClassNode, deployment2: ClassNode, deployment3: ClassNode, deploymentx: ClassNode):
-        self.tenant_map = {"tenant1":deployment1, "tenant2":deployment2,"tenant3":deployment3}
-        self.default_deployment = deploymentx
+class SharedMemory:
+    def __init__(self):
+        self.tenant_map = {"tenant1":"deployment1", "tenant2":"deployment2","tenant3":"deployment3"}
         self.tenant_queue = deque(maxlen=3)
         self.tenant_queue.append("tenant1")
         self.tenant_queue.append("tenant2")
         self.tenant_queue.append("tenant3")
 
+@serve.deployment(num_replicas=1)
+class Dispatcher:
+    def __init__(self, deployment1: ClassNode, deployment2: ClassNode, deployment3: ClassNode, deploymentx: ClassNode,sharedmemory: ClassNode):
+        self.deployment_map = {"deployment1":deployment1, "deployment2":deployment2,"deployment3":deployment3}
+        self.default_deployment = deploymentx
+        self.sharedmemory = sharedmemory
+
         self.q = queue.Queue()
         threading.Thread(target=self.append, daemon=True).start()
-
-    # def reconfigure(self, config: Dict):
-    #     self.tenant_map = config
 
 
 
@@ -96,20 +96,19 @@ class Dispatcher:
         
             if new_item in self.tenant_queue:
                 #the tenant is already in the queue, just move it up to higher priority
-                self.tenant_queue.remove(new_item)
-                self.tenant_queue.append(new_item)
+                self.sharedmemory.tenant_queue.remove(new_item)
+                self.sharedmemory.tenant_queue.append(new_item)
             else: #if this tenant is not yet in the hot queue
-                # if self.tenant_queue.__len__() == self.tenant_queue.maxlen: #if queue is full, need to kick out old tenant
-                out_item = self.tenant_queue.popleft()
-                self.tenant_queue.append(new_item)
-                #do something with out_item
-                # update mapping table to route traffic of out_item to generic functiont
-                current_deployment = self.tenant_map.pop(out_item)
-                # locate and update deployment that has out_item to load new_item model
-                
-                # if current_deployment:
+                #  kick out old tenant
+                out_item = ray.get(self.sharedmemory.tenant_queue.popleft())
+                self.sharedmemory.tenant_queue.append(new_item)
+                # update mapping table to route traffic of out_item to cold scoring
+                current_deployment = ray.get(self.sharedmemory.tenant_map.pop(out_item))
+                current_deployment = self.deployment_map.get(current_deployment)
+                # promote the new_item's deployment to hot
                 ray.get(current_deployment.reconfigure.remote({"tenant":new_item}))
-                self.tenant_map[new_item] =current_deployment
+                #update mapping 
+                self.sharedmemory.tenant_map[new_item] =current_deployment
 
         
 
@@ -118,7 +117,8 @@ class Dispatcher:
         tenant = raw_input.get('tenant')
         # threading.Thread(target=self.append, daemon=True, args=(tenant)).start()
         data = raw_input.get("data")
-        deployment = self.tenant_map.get(tenant, self.default_deployment)
+        deployment = ray.get(self.sharedmemory.tenant_map.get(tenant, self.default_deployment))
+        deployment= self.deployment_map.get(deployment)
         result = ray.get(deployment.predict.remote(data, tenant))
         self.q.put(tenant)
 
@@ -132,10 +132,9 @@ with InputNode() as message:
     deployment1 = Deployment1.bind()
     deployment2 = Deployment2.bind()
     deployment3 = Deployment3.bind()
-
     deploymentx = Deploymentx.bind()
-
-    dispatcher = Dispatcher.bind(deployment1, deployment2,deployment3,deploymentx)
+    sharedmemory = SharedMemory.bind()
+    dispatcher = Dispatcher.bind(deployment1, deployment2,deployment3,deploymentx,sharedmemory)
     output_message = dispatcher.process.bind(message)
 
 deployment_graph = DAGDriver.bind(output_message, http_adapter=json_resolver)
