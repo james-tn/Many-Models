@@ -37,8 +37,12 @@ spec:
           tenant: default
         rayActorOptions:
           numCpus: 0.1
-      - name: DAGDriver
+      - name: SharedMemory
         numReplicas: 1
+      - name: Dispatcher
+        numReplicas: 2
+      - name: DAGDriver
+        numReplicas: 2
         routePrefix: "/"
         rayActorOptions:
           numCpus: 0.1

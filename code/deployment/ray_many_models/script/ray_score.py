@@ -77,7 +77,7 @@ class SharedMemory:
         self.tenant_queue.append("tenant2")
         self.tenant_queue.append("tenant3")
 
-@serve.deployment(num_replicas=1)
+@serve.deployment(num_replicas=2)
 class Dispatcher:
     def __init__(self, deployment1: ClassNode, deployment2: ClassNode, deployment3: ClassNode, deploymentx: ClassNode,sharedmemory: ClassNode):
         self.deployment_map = {"deployment1":deployment1, "deployment2":deployment2,"deployment3":deployment3}
