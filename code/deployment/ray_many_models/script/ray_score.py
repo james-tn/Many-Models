@@ -86,11 +86,12 @@ class SharedMemory:
         return self.tenant_map.pop(item)
     def set_tenant_map(self, tenant, deployment_name):
         self.tenant_map[tenant]=deployment_name
+    def get_tenant_map(self, tenant):
+        return self.tenant_map.get(tenant, "default")
 @serve.deployment(num_replicas=2)
 class Dispatcher:
     def __init__(self, deployment1: ClassNode, deployment2: ClassNode, deployment3: ClassNode, deploymentx: ClassNode,sharedmemory: ClassNode):
-        self.deployment_map = {"deployment1":deployment1, "deployment2":deployment2,"deployment3":deployment3}
-        self.default_deployment = deploymentx
+        self.deployment_map = {"deployment1":deployment1, "deployment2":deployment2,"deployment3":deployment3, "default":deploymentx}
         self.sharedmemory = sharedmemory
 
         self.q = queue.Queue()
@@ -124,8 +125,8 @@ class Dispatcher:
         tenant = raw_input.get('tenant')
         # threading.Thread(target=self.append, daemon=True, args=(tenant)).start()
         data = raw_input.get("data")
-        deployment = ray.get(self.sharedmemory.tenant_map.get(tenant, self.default_deployment))
-        deployment= self.deployment_map.get(deployment)
+        deployment_name = ray.get(self.sharedmemory.get_tenant_map.remote(tenant))
+        deployment= self.deployment_map.get(deployment_name)
         result = ray.get(deployment.predict.remote(data, tenant))
         self.q.put(tenant)
 
