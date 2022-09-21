@@ -13,3 +13,5 @@ az aks get-credentials -n ray-many-modela15023546 --resource-group azureml
 
 # Deploy a sample Ray Cluster CR from the KubeRay repo:
 ! kubectl apply -f ray_service.yaml
+az acr build --registry ws02acrrqjiouba  --image custom-ray-serve:v1 .
+
